@@ -37,8 +37,11 @@
 #include <linux/if_arp.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
+#include <uuid/uuid.h>
 
 #include "nm-utils/nm-dedup-multi.h"
+#include "nm-utils/nm-random-utils.h"
+#include "nm-utils/unaligned.h"
 
 #include "nm-common-macros.h"
 #include "nm-device-private.h"
@@ -7679,12 +7682,215 @@ dhcp6_prefix_delegated (NMDhcpClient *client,
 	g_signal_emit (self, signals[IP6_PREFIX_DELEGATED], 0, prefix);
 }
 
+static GBytes *
+generate_duid_llt (GBytes *hwaddr, guint32 time)
+{
+	GByteArray *duid_arr;
+	const guint16 duid_type = htons (1);
+	const guint16 hw_type = htons (ARPHRD_ETHER);
+	const guint32 duid_time = htonl (time);
+
+	duid_arr = g_byte_array_sized_new (2 + 4 + 2 + ETH_ALEN);
+
+	g_byte_array_append (duid_arr, (const guint8 *) &duid_type, 2);
+	g_byte_array_append (duid_arr, (const guint8 *) &hw_type, 2);
+	g_byte_array_append (duid_arr, (const guint8 *) &duid_time, 4);
+
+	g_byte_array_append (duid_arr, g_bytes_get_data (hwaddr, NULL), ETH_ALEN);
+
+	return g_byte_array_free_to_bytes (duid_arr);
+}
+
+static GBytes *
+generate_duid_ll (GBytes *hwaddr)
+{
+	GByteArray *duid_arr;
+	const guint16 duid_type = htons (3);
+	const guint16 hw_type = htons (ARPHRD_ETHER);
+	gs_unref_bytes GBytes *stable_hwaddr = NULL;
+
+	duid_arr = g_byte_array_sized_new (2 + 2 + ETH_ALEN);
+
+	g_byte_array_append (duid_arr, (const guint8 *) &duid_type, 2);
+	g_byte_array_append (duid_arr, (const guint8 *) &hw_type, 2);
+	g_byte_array_append (duid_arr, g_bytes_get_data (hwaddr, NULL), ETH_ALEN);
+
+	return g_byte_array_free_to_bytes (duid_arr);
+}
+
+static GBytes *
+generate_duid_uuid (guint8 *data, gsize data_len)
+{
+	const guint16 duid_type = g_htons (4);
+	const int DUID_SIZE = 18;
+	guint8 *duid_buffer;
+
+	nm_assert (data);
+	nm_assert (data_len >= 16);
+
+	/* Generate a DHCP Unique Identifier for DHCPv6 using the
+	 * DUID-UUID method (see RFC 6355 section 4).  Format is:
+	 *
+	 * u16: type (DUID-UUID = 4)
+	 * u8[16]: UUID bytes
+	 */
+	duid_buffer = g_malloc (DUID_SIZE);
+
+	G_STATIC_ASSERT_EXPR (sizeof (duid_type) == 2);
+	memcpy (&duid_buffer[0], &duid_type, 2);
+
+	/* UUID is 128 bits, we just take the first 128 bits
+	 * (regardless of data size) as the DUID-UUID.
+	 */
+	memcpy (&duid_buffer[2], data, 16);
+
+	return g_bytes_new_take (duid_buffer, DUID_SIZE);
+}
+
+static GBytes *
+dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcpDuidEnforce *out_enforce)
+{
+	NMSettingIPConfig *s_ip6;
+	const char *duid;
+	gs_free char *duid_default = NULL;
+	const char *duid_error = NULL;
+	GBytes *duid_out = NULL;
+	guint8 sha256_digest[32];
+	gsize len = sizeof (sha256_digest);
+
+	NM_SET_OUT (out_enforce, NM_DHCP_DUID_ENFORCE_NEVER);
+
+	s_ip6 = nm_connection_get_setting_ip6_config (connection);
+	duid = nm_setting_ip6_config_get_dhcp_duid (NM_SETTING_IP6_CONFIG (s_ip6));
+
+	if (!duid) {
+		duid_default = nm_config_data_get_connection_default (NM_CONFIG_GET_DATA,
+		                                                      "ipv6.dhcp-duid", self);
+		duid = duid_default;
+	}
+
+	if (!duid || nm_streq (duid, "lease"))
+		return NULL;
+
+	if (!_nm_utils_dhcp_duid_valid (duid, &duid_out))
+		return NULL;
+
+	if (duid_out)
+		return duid_out;
+
+	if (NM_IN_STRSET (duid, "ll", "llt")) {
+		if (!hwaddr) {
+			duid_error = "missing link-layer address";
+			goto end;
+		}
+		if (g_bytes_get_size (hwaddr) != ETH_ALEN) {
+			duid_error = "unsupported link-layer address";
+			goto end;
+		}
+	} else if (NM_IN_STRSET (duid, "stable-llt", "stable-ll", "stable-uuid")) {
+		NMUtilsStableType stable_type;
+		const char *stable_id = NULL;
+		guint32 salted_header;
+		GChecksum *sum;
+		const guint8 *secret_key;
+		gsize secret_key_len;
+
+		stable_id = _get_stable_id (self, connection, &stable_type);
+		if (!stable_id) {
+			nm_assert_not_reached ();
+			duid_error = "cannot retrieve the stable id";
+			goto end;
+		}
+
+		salted_header = htonl (670531087 + stable_type);
+
+		nm_utils_secret_key_get (&secret_key, &secret_key_len);
+
+		sum = g_checksum_new (G_CHECKSUM_SHA256);
+
+		g_checksum_update (sum, (const guchar *) &salted_header, sizeof (salted_header));
+		g_checksum_update (sum, (const guchar *) stable_id, -1);
+		g_checksum_update (sum, (const guchar *) secret_key, secret_key_len);
+
+		g_checksum_get_digest (sum, sha256_digest, &len);
+		g_checksum_free (sum);
+	}
+
+	NM_SET_OUT (out_enforce, NM_DHCP_DUID_ENFORCE_ALWAYS);
+
+#define EPOCH_DATETIME_200001010000  946684800
+#define EPOCH_DATETIME_THREE_YEARS  (356 * 24 * 3600 * 3)
+	if (nm_streq0 (duid, "ll")) {
+		duid_out = generate_duid_ll (hwaddr);
+
+	} else if (nm_streq0 (duid, "llt")) {
+		guint32 time;
+
+		time = nm_utils_secret_key_get_timestamp ();
+		if (!time) {
+			duid_error = "cannot retrieve the secret key timestamp";
+			goto end;
+		}
+		/* RFC 3315 defines the epoch for the DUID-LLT time field on Jan 1st 2000. */
+		time -= EPOCH_DATETIME_200001010000;
+
+		duid_out = generate_duid_llt (hwaddr, time);
+
+	} else if (nm_streq0 (duid, "stable-ll")) {
+		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
+
+		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
+		duid_out = generate_duid_ll (stable_id_hwadd);
+
+	} else if (nm_streq0 (duid, "stable-llt")) {
+		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
+		guint32 time, stable_id_diff = 0;
+		guint64 secret_key_time;
+		int i;
+
+		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
+
+		/* We want a variable time between the secret_key timestamp and three years
+		 * before. Let's compute the time (in seconds) from 0 to 3 years; then we'll
+		 * subtract it from the secret_key timestamp.
+		 */
+		secret_key_time = nm_utils_secret_key_get_timestamp ();
+		if (!secret_key_time) {
+			duid_error = "cannot retrieve the secret key timestamp";
+			goto end;
+		}
+		for (i = 0; i < 4; i++) {
+			stable_id_diff = stable_id_diff << 8;
+			stable_id_diff += unaligned_read_be32 (&sha256_digest[ETH_ALEN + i]);
+		}
+		stable_id_diff = stable_id_diff % EPOCH_DATETIME_THREE_YEARS;
+		time = secret_key_time - EPOCH_DATETIME_200001010000;
+		time -= stable_id_diff;
+
+		duid_out = generate_duid_llt (stable_id_hwadd, time);
+
+	} else if (nm_streq0 (duid, "stable-uuid")) {
+		duid_out = generate_duid_uuid (sha256_digest, len);
+	}
+
+end:
+	if (!duid_out) {
+		if (!duid_error)
+			duid_error = "generation failed";
+		_LOGD (LOGD_IP6, "duid-gen (%s): %s. Fallback to 'lease'.", duid, duid_error);
+	}
+	return duid_out;
+}
+
 static gboolean
 dhcp6_start_with_link_ready (NMDevice *self, NMConnection *connection)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 	NMSettingIPConfig *s_ip6;
 	gs_unref_bytes GBytes *hwaddr = NULL;
+	gs_unref_bytes GBytes *duid = NULL;
+	NMDhcpDuidEnforce enforce_duid;
+
 	const NMPlatformIP6Address *ll_addr = NULL;
 
 	g_assert (connection);
@@ -7705,6 +7911,7 @@ dhcp6_start_with_link_ready (NMDevice *self, NMConnection *connection)
 	hwaddr = nm_platform_link_get_address_as_bytes (nm_device_get_platform (self),
 	                                                nm_device_get_ip_ifindex (self));
 
+	duid = dhcp6_get_duid (self, connection, hwaddr, &enforce_duid);
 	priv->dhcp6.client = nm_dhcp_manager_start_ip6 (nm_dhcp_manager_get (),
 	                                                nm_device_get_multi_index (self),
 	                                                nm_device_get_ip_iface (self),
@@ -7716,6 +7923,8 @@ dhcp6_start_with_link_ready (NMDevice *self, NMConnection *connection)
 	                                                nm_device_get_route_metric (self, AF_INET6),
 	                                                nm_setting_ip_config_get_dhcp_send_hostname (s_ip6),
 	                                                nm_setting_ip_config_get_dhcp_hostname (s_ip6),
+	                                                duid,
+	                                                enforce_duid,
 	                                                get_dhcp_timeout (self, AF_INET6),
 	                                                priv->dhcp_anycast_address,
 	                                                (priv->dhcp6.mode == NM_NDISC_DHCP_LEVEL_OTHERCONF) ? TRUE : FALSE,
