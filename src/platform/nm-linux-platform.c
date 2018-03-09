@@ -534,6 +534,7 @@ static const LinkDesc linktypes[] = {
 	{ NM_LINK_TYPE_WWAN_NET,      "wwan",        NULL,          "wwan" },
 	{ NM_LINK_TYPE_WIMAX,         "wimax",       "wimax",       "wimax" },
 	{ NM_LINK_TYPE_WPAN,          "wpan",        NULL,          NULL },
+	{ NM_LINK_TYPE_6LOWPAN,       "6lowpan",     NULL,          NULL },
 
 	{ NM_LINK_TYPE_BNEP,          "bluetooth",   NULL,          "bluetooth" },
 	{ NM_LINK_TYPE_DUMMY,         "dummy",       "dummy",       NULL },
@@ -844,6 +845,8 @@ _linktype_get_type (NMPlatform *platform,
 		return NM_LINK_TYPE_PPP;
 	else if (arptype == ARPHRD_IEEE802154)
 		return NM_LINK_TYPE_WPAN;
+	else if (arptype == ARPHRD_6LOWPAN)
+		return NM_LINK_TYPE_6LOWPAN;
 
 	{
 		NMPUtilsEthtoolDriverInfo driver_info;
