@@ -74,6 +74,7 @@
 #include "nm-device-vxlan.h"
 #include "nm-device-wifi.h"
 #include "nm-device-wimax.h"
+#include "nm-device-wpan.h"
 #include "nm-dhcp4-config.h"
 #include "nm-dhcp6-config.h"
 #include "nm-dhcp-config.h"
@@ -2563,6 +2564,8 @@ obj_nm_for_gdbus_object (NMClient *self, GDBusObject *object, GDBusObjectManager
 			type = NM_TYPE_DEVICE_TUN;
 		else if (strcmp (ifname, NM_DBUS_INTERFACE_DEVICE_VLAN) == 0)
 			type = NM_TYPE_DEVICE_VLAN;
+		else if (strcmp (ifname, NM_DBUS_INTERFACE_DEVICE_WPAN) == 0)
+			type = NM_TYPE_DEVICE_WPAN;
 		else if (strcmp (ifname, NM_DBUS_INTERFACE_DEVICE_VXLAN) == 0)
 			type = NM_TYPE_DEVICE_VXLAN;
 		else if (strcmp (ifname, NM_DBUS_INTERFACE_DEVICE_WIRELESS) == 0)

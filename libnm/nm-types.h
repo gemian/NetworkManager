@@ -54,6 +54,7 @@ typedef struct _NMDeviceVlan         NMDeviceVlan;
 typedef struct _NMDeviceVxlan        NMDeviceVxlan;
 typedef struct _NMDeviceWifi         NMDeviceWifi;
 typedef struct _NMDeviceWimax        NMDeviceWimax;
+typedef struct _NMDeviceWpan         NMDeviceWpan;
 typedef struct _NMDhcpConfig         NMDhcpConfig;
 typedef struct _NMIPConfig           NMIPConfig;
 typedef struct _NMObject             NMObject;
