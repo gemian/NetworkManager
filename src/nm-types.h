@@ -150,6 +150,7 @@ typedef enum {
 	NM_LINK_TYPE_WIFI,
 	NM_LINK_TYPE_WWAN_NET,   /* WWAN kernel netdevice */
 	NM_LINK_TYPE_WIMAX,
+	NM_LINK_TYPE_WPAN,
 
 	/* Software types */
 	NM_LINK_TYPE_BNEP = 0x10000,   /* Bluetooth Ethernet emulation */
