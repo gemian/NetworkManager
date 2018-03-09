@@ -69,6 +69,7 @@ typedef struct _NMSettingWimax            NMSettingWimax;
 typedef struct _NMSettingWired            NMSettingWired;
 typedef struct _NMSettingWireless         NMSettingWireless;
 typedef struct _NMSettingWirelessSecurity NMSettingWirelessSecurity;
+typedef struct _NMSettingWpan             NMSettingWpan;
 typedef struct _NMSimpleConnection        NMSimpleConnection;
 
 #endif  /* __NM_CORE_TYPES_H__ */
