@@ -7885,6 +7885,7 @@ _meta_type_setting_info_editor_get_fcn (const NMMetaAbstractInfo *abstract_info,
                                         const NMMetaEnvironment *environment,
                                         gpointer environment_user_data,
                                         gpointer target,
+                                        gpointer target_data,
                                         NMMetaAccessorGetType get_type,
                                         NMMetaAccessorGetFlags get_flags,
                                         NMMetaAccessorGetOutFlags *out_flags,
@@ -7911,6 +7912,7 @@ _meta_type_property_info_get_fcn (const NMMetaAbstractInfo *abstract_info,
                                   const NMMetaEnvironment *environment,
                                   gpointer environment_user_data,
                                   gpointer target,
+                                  gpointer target_data,
                                   NMMetaAccessorGetType get_type,
                                   NMMetaAccessorGetFlags get_flags,
                                   NMMetaAccessorGetOutFlags *out_flags,
@@ -7921,6 +7923,7 @@ _meta_type_property_info_get_fcn (const NMMetaAbstractInfo *abstract_info,
 
 	nm_assert (!out_to_free || !*out_to_free);
 	nm_assert (out_flags && !*out_flags);
+	nm_assert (!target_data);
 
 	if (!NM_IN_SET (get_type,
 	                NM_META_ACCESSOR_GET_TYPE_PARSABLE,

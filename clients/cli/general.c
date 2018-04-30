@@ -508,6 +508,7 @@ show_nm_status (NmCli *nmc, const char *pretty_header_name, const char *print_fl
 
 	if (!nmc_print (&nmc->nmc_config,
 	                (gpointer[]) { nmc, NULL },
+	                NULL,
 	                pretty_header_name ?: N_("NetworkManager status"),
 	                (const NMMetaAbstractInfo *const*) metagen_general_status,
 	                fields_str,
@@ -562,6 +563,7 @@ print_permissions (void *user_data)
 
 	if (!nmc_print (&nmc->nmc_config,
 	                permissions,
+	                NULL,
 	                _("NetworkManager permissions"),
 	                (const NMMetaAbstractInfo *const*) metagen_general_permissions,
 	                fields_str,
@@ -654,6 +656,7 @@ show_general_logging (NmCli *nmc)
 
 	if (!nmc_print (&nmc->nmc_config,
 	                (gpointer const []) { &d, NULL },
+	                NULL,
 	                _("NetworkManager logging"),
 	                (const NMMetaAbstractInfo *const*) metagen_general_logging,
 	                fields_str,
