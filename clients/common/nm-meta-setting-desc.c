@@ -7960,7 +7960,6 @@ _meta_type_setting_info_editor_get_nested (const NMMetaAbstractInfo *abstract_in
 	info = (const NMMetaSettingInfoEditor *) abstract_info;
 
 	NM_SET_OUT (out_len, info->properties_num);
-	*out_to_free = NULL;
 	return (const NMMetaAbstractInfo *const*) info->properties;
 }
 
@@ -7970,7 +7969,6 @@ _meta_type_property_info_get_nested (const NMMetaAbstractInfo *abstract_info,
                                      gpointer *out_to_free)
 {
 	NM_SET_OUT (out_len, 0);
-	*out_to_free = NULL;
 	return NULL;
 }
 
