@@ -872,6 +872,11 @@ typedef struct {
 	gboolean    (*mesh_set_channel)      (NMPlatform *, int ifindex, guint32 channel);
 	gboolean    (*mesh_set_ssid)         (NMPlatform *, int ifindex, const guint8 *ssid, gsize len);
 
+	guint16     (*wpan_get_pan_id)       (NMPlatform *, int ifindex);
+	gboolean    (*wpan_set_pan_id)       (NMPlatform *, int ifindex, const guint16 pan_id);
+	guint16     (*wpan_get_short_addr)   (NMPlatform *, int ifindex);
+	gboolean    (*wpan_set_short_addr)   (NMPlatform *, int ifindex, const guint16 short_addr);
+
 	gboolean (*object_delete) (NMPlatform *, const NMPObject *obj);
 
 	gboolean (*ip4_address_add) (NMPlatform *,
@@ -1249,6 +1254,11 @@ void        nm_platform_wifi_indicate_addressing_running (NMPlatform *self, int 
 guint32     nm_platform_mesh_get_channel      (NMPlatform *self, int ifindex);
 gboolean    nm_platform_mesh_set_channel      (NMPlatform *self, int ifindex, guint32 channel);
 gboolean    nm_platform_mesh_set_ssid         (NMPlatform *self, int ifindex, const guint8 *ssid, gsize len);
+
+guint16     nm_platform_wpan_get_pan_id       (NMPlatform *platform, int ifindex);
+gboolean    nm_platform_wpan_set_pan_id       (NMPlatform *platform, int ifindex, const guint16 pan_id);
+guint16     nm_platform_wpan_get_short_addr   (NMPlatform *platform, int ifindex);
+gboolean    nm_platform_wpan_set_short_addr   (NMPlatform *platform, int ifindex, const guint16 short_addr);
 
 void                   nm_platform_ip4_address_set_addr (NMPlatformIP4Address *addr, in_addr_t address, guint8 plen);
 const struct in6_addr *nm_platform_ip6_address_get_peer (const NMPlatformIP6Address *addr);
