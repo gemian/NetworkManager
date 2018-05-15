@@ -168,8 +168,6 @@ wifi_nl80211_deinit (WifiData *parent)
 {
 	WifiDataNl80211 *nl80211 = (WifiDataNl80211 *) parent;
 
-	if (nl80211->nl_sock)
-		nl_socket_free (nl80211->nl_sock);
 	g_free (nl80211->freqs);
 }
 
@@ -839,7 +837,7 @@ static int nl80211_wiphy_info_handler (struct nl_msg *msg, void *arg)
 }
 
 WifiData *
-wifi_nl80211_init (int ifindex)
+wifi_nl80211_init (int ifindex, struct nl_sock *genl)
 {
 	static const WifiDataClass klass = {
 		.struct_size = sizeof (WifiDataNl80211),
@@ -860,6 +858,9 @@ wifi_nl80211_init (int ifindex)
 	struct nl80211_device_info device_info = {};
 	char ifname[IFNAMSIZ];
 
+	if (!genl)
+		return NULL;
+
 	if (!nmp_utils_if_indextoname (ifindex, ifname)) {
 		_LOGW (LOGD_PLATFORM | LOGD_WIFI,
 		       "can't determine interface name for ifindex %d", ifindex);
@@ -868,12 +869,7 @@ wifi_nl80211_init (int ifindex)
 
 	nl80211 = wifi_data_new (&klass, ifindex);
 
-	nl80211->nl_sock = nl_socket_alloc ();
-	if (nl80211->nl_sock == NULL)
-		goto error;
-
-	if (nl_connect (nl80211->nl_sock, NETLINK_GENERIC))
-		goto error;
+	nl80211->nl_sock = genl;
 
 	nl80211->id = genl_ctrl_resolve (nl80211->nl_sock, "nl80211");
 	if (nl80211->id < 0) {

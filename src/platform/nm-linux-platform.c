@@ -1663,6 +1663,9 @@ _parse_lnk_vxlan (const char *kind, struct nlattr *info_data)
 
 /*****************************************************************************/
 
+static struct nl_sock *
+_genl_sock (NMLinuxPlatform *platform);
+
 /* Copied and heavily modified from libnl3's link_msg_parser(). */
 static NMPObject *
 _new_from_nl_link (NMPlatform *platform, const NMPCache *cache, struct nlmsghdr *nlh, gboolean id_only)
@@ -1869,7 +1872,7 @@ _new_from_nl_link (NMPlatform *platform, const NMPCache *cache, struct nlmsghdr 
 		lnk_data = _parse_lnk_vxlan (nl_info_kind, nl_info_data);
 		break;
 	case NM_LINK_TYPE_WIFI:
-		obj->_link.wifi_data = wifi_utils_init (ifi->ifi_index, TRUE);
+		obj->_link.wifi_data = wifi_utils_init (ifi->ifi_index, _genl_sock (NM_LINUX_PLATFORM (platform)), TRUE);
 		break;
 	case NM_LINK_TYPE_OLPC_MESH:
 		/* The kernel driver now uses nl80211, but we force use of WEXT because
@@ -2978,6 +2981,8 @@ typedef struct {
 } DelayedActionWaitForNlResponseData;
 
 typedef struct {
+	struct nl_sock *genl;
+
 	struct nl_sock *nlh;
 	guint32 nlh_seq_next;
 #ifdef NM_MORE_LOGGING
@@ -3047,6 +3052,14 @@ nm_linux_platform_setup (void)
 }
 
 /*****************************************************************************/
+
+static struct nl_sock *
+_genl_sock (NMLinuxPlatform *platform)
+{
+	NMLinuxPlatformPrivate *priv = NM_LINUX_PLATFORM_GET_PRIVATE (platform);
+
+	return priv->genl;
+}
 
 #define ASSERT_SYSCTL_ARGS(pathid, dirfd, path) \
 	G_STMT_START { \
@@ -7018,6 +7031,18 @@ constructed (GObject *_object)
 	                                   nmp_netns_get_current () == nmp_netns_get_initial () ? "/main" : "")),
 	       nm_platform_get_use_udev (platform) ? "use" : "no");
 
+
+	priv->genl = nl_socket_alloc ();
+	g_assert (priv->genl);
+
+	nle = nl_connect (priv->genl, NETLINK_GENERIC);
+	if (nle) {
+		_LOGE ("unable to connect the generic netlink socket \"%s\" (%d)",
+		       nl_geterror (nle), -nle);
+		nl_socket_free (priv->genl);
+		priv->genl = NULL;
+	}
+
 	priv->nlh = nl_socket_alloc ();
 	g_assert (priv->nlh);
 
@@ -7135,6 +7160,8 @@ finalize (GObject *object)
 	g_ptr_array_unref (priv->delayed_action.list_master_connected);
 	g_ptr_array_unref (priv->delayed_action.list_refresh_link);
 	g_array_unref (priv->delayed_action.list_wait_for_nl_response);
+
+	nl_socket_free (priv->genl);
 
 	g_source_remove (priv->event_id);
 	g_io_channel_unref (priv->event_channel);

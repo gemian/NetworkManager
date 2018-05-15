@@ -22,7 +22,8 @@
 #define __WIFI_UTILS_NL80211_H__
 
 #include "wifi-utils.h"
+#include "platform/nm-netlink.h"
 
-WifiData *wifi_nl80211_init (int ifindex);
+WifiData *wifi_nl80211_init (int ifindex, struct nl_sock *genl);
 
 #endif  /* __WIFI_UTILS_NL80211_H__ */

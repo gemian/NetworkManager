@@ -55,13 +55,13 @@ wifi_data_new (const WifiDataClass *klass, int ifindex)
 /*****************************************************************************/
 
 WifiData *
-wifi_utils_init (int ifindex, gboolean check_scan)
+wifi_utils_init (int ifindex, struct nl_sock *genl, gboolean check_scan)
 {
 	WifiData *ret;
 
 	g_return_val_if_fail (ifindex > 0, NULL);
 
-	ret = wifi_nl80211_init (ifindex);
+	ret = wifi_nl80211_init (ifindex, genl);
 	if (ret == NULL) {
 #if HAVE_WEXT
 		ret = wifi_wext_init (ifindex, check_scan);

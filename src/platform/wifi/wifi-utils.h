@@ -25,12 +25,13 @@
 #include <net/ethernet.h>
 
 #include "nm-dbus-interface.h"
+#include "platform/nm-netlink.h"
 
 typedef struct WifiData WifiData;
 
 gboolean wifi_utils_is_wifi (int dirfd, const char *ifname);
 
-WifiData *wifi_utils_init (int ifindex, gboolean check_scan);
+WifiData *wifi_utils_init (int ifindex, struct nl_sock *genl, gboolean check_scan);
 
 void wifi_utils_ref (WifiData *data);
 
