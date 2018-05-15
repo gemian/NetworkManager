@@ -71,6 +71,7 @@ struct WifiData {
 	const WifiDataClass *klass;
 	int ifindex;
 	NMDeviceWifiCapabilities caps;
+	guint refcount;
 };
 
 gpointer wifi_data_new (const WifiDataClass *klass, int ifindex);

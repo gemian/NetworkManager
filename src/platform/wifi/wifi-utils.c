@@ -48,6 +48,7 @@ wifi_data_new (const WifiDataClass *klass, int ifindex)
 	data = g_malloc0 (klass->struct_size);
 	data->klass = klass;
 	data->ifindex = ifindex;
+	data->refcount = 1;
 	return data;
 }
 
@@ -154,12 +155,25 @@ wifi_utils_get_wowlan (WifiData *data)
 }
 
 void
+wifi_utils_ref (WifiData *data)
+{
+	g_return_if_fail (data != NULL);
+	g_return_if_fail (data->refcount > 0);
+
+	data->refcount++;
+}
+
+void
 wifi_utils_unref (WifiData *data)
 {
 	g_return_if_fail (data != NULL);
+	g_return_if_fail (data->refcount > 0);
 
-	data->klass->deinit (data);
-	g_free (data);
+	data->refcount--;
+	if (data->refcount == 0) {
+		data->klass->deinit (data);
+		g_free (data);
+	}
 }
 
 gboolean
