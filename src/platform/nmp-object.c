@@ -31,6 +31,8 @@
 #include "nm-core-utils.h"
 #include "nm-platform-utils.h"
 
+#include "wifi/wifi-utils.h"
+
 /*****************************************************************************/
 
 #define _NMLOG_DOMAIN LOGD_PLATFORM
@@ -455,6 +457,10 @@ _vt_cmd_obj_dispose_link (NMPObject *obj)
 	if (obj->_link.udev.device) {
 		udev_device_unref (obj->_link.udev.device);
 		obj->_link.udev.device = NULL;
+	}
+	if (obj->_link.wifi_data) {
+		wifi_utils_unref (obj->_link.wifi_data);
+		obj->_link.wifi_data = NULL;
 	}
 	nmp_object_unref (obj->_link.netlink.lnk);
 }
@@ -907,6 +913,13 @@ _vt_cmd_obj_copy_link (NMPObject *dst, const NMPObject *src)
 		if (dst->_link.netlink.lnk)
 			nmp_object_unref (dst->_link.netlink.lnk);
 		dst->_link.netlink.lnk = src->_link.netlink.lnk;
+	}
+	if (dst->_link.wifi_data != src->_link.wifi_data) {
+		if (src->_link.wifi_data)
+			wifi_utils_ref (src->_link.wifi_data);
+		if (dst->_link.wifi_data)
+			wifi_utils_unref (dst->_link.wifi_data);
+		dst->_link.wifi_data = src->_link.wifi_data;
 	}
 	dst->_link = src->_link;
 }
