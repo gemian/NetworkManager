@@ -775,18 +775,18 @@ enum {
 /**
  * NMSettingTCConfig:
  *
- * Linux Traffic Contril Settings.
+ * Linux Traffic Control Settings.
  *
  * Since: 1.12
  */
 struct _NMSettingTCConfig {
-        NMSetting parent;
+	NMSetting parent;
 	GPtrArray *qdiscs;
 	GPtrArray *tfilters;
 };
 
 struct _NMSettingTCConfigClass {
-        NMSettingClass parent;
+	NMSettingClass parent;
 };
 
 G_DEFINE_TYPE_WITH_CODE (NMSettingTCConfig, nm_setting_tc_config, NM_TYPE_SETTING,
