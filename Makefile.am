@@ -1458,6 +1458,8 @@ src_libNetworkManagerBase_la_SOURCES = \
 	src/platform/wifi/wifi-utils-private.h \
 	src/platform/wifi/wifi-utils.c \
 	src/platform/wifi/wifi-utils.h \
+	src/platform/wpan/wpan-utils.c \
+	src/platform/wpan/wpan-utils.h \
 	\
 	src/platform/nl802154.h \
 	\
