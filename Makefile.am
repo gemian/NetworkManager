@@ -1459,6 +1459,8 @@ src_libNetworkManagerBase_la_SOURCES = \
 	src/platform/wifi/wifi-utils.c \
 	src/platform/wifi/wifi-utils.h \
 	\
+	src/platform/nl802154.h \
+	\
 	src/ndisc/nm-lndp-ndisc.c \
 	src/ndisc/nm-lndp-ndisc.h \
 	src/ndisc/nm-ndisc.c \
