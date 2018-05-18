@@ -32,6 +32,7 @@
 #include "nm-platform-utils.h"
 
 #include "wifi/wifi-utils.h"
+#include "wpan/wpan-utils.h"
 
 /*****************************************************************************/
 
@@ -461,6 +462,10 @@ _vt_cmd_obj_dispose_link (NMPObject *obj)
 	if (obj->_link.wifi_data) {
 		wifi_utils_unref (obj->_link.wifi_data);
 		obj->_link.wifi_data = NULL;
+	}
+	if (obj->_link.wpan_data) {
+		wpan_utils_unref (obj->_link.wpan_data);
+		obj->_link.wpan_data = NULL;
 	}
 	nmp_object_unref (obj->_link.netlink.lnk);
 }
@@ -920,6 +925,13 @@ _vt_cmd_obj_copy_link (NMPObject *dst, const NMPObject *src)
 		if (dst->_link.wifi_data)
 			wifi_utils_unref (dst->_link.wifi_data);
 		dst->_link.wifi_data = src->_link.wifi_data;
+	}
+	if (dst->_link.wpan_data != src->_link.wpan_data) {
+		if (src->_link.wpan_data)
+			wpan_utils_ref (src->_link.wpan_data);
+		if (dst->_link.wpan_data)
+			wpan_utils_unref (dst->_link.wpan_data);
+		dst->_link.wpan_data = src->_link.wpan_data;
 	}
 	dst->_link = src->_link;
 }

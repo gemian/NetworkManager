@@ -165,7 +165,10 @@ typedef struct {
 		struct udev_device *device;
 	} udev;
 
-	struct WifiData *wifi_data;
+	union {
+		struct WifiData *wifi_data;
+		struct WpanData *wpan_data;
+	};
 } NMPObjectLink;
 
 typedef struct {

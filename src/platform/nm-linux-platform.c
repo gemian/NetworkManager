@@ -52,6 +52,7 @@
 #include "nm-platform-private.h"
 #include "wifi/wifi-utils.h"
 #include "wifi/wifi-utils-wext.h"
+#include "wpan/wpan-utils.h"
 #include "nm-utils/unaligned.h"
 #include "nm-utils/nm-udev-utils.h"
 
@@ -1888,6 +1889,9 @@ _new_from_nl_link (NMPlatform *platform, const NMPCache *cache, struct nlmsghdr 
 #if HAVE_WEXT
 		obj->_link.wifi_data = wifi_wext_init (ifi->ifi_index, FALSE);
 #endif
+		break;
+	case NM_LINK_TYPE_WPAN:
+		obj->_link.wpan_data = wpan_utils_init (ifi->ifi_index, _genl_sock (NM_LINUX_PLATFORM (platform)), TRUE);
 		break;
 	default:
 		lnk_data_complete_from_cache = FALSE;
@@ -6169,6 +6173,57 @@ mesh_set_ssid (NMPlatform *platform, int ifindex, const guint8 *ssid, gsize len)
 
 /*****************************************************************************/
 
+static WpanData *
+wpan_get_wpan_data (NMPlatform *platform, int ifindex)
+{
+	const NMPObject *obj;
+
+	obj = nmp_cache_lookup_link (nm_platform_get_cache (platform), ifindex);
+	if (!obj)
+		return NULL;
+
+	return obj->_link.wpan_data;
+}
+
+#define WPAN_GET_WPAN_DATA_NETNS(wpan_data, platform, ifindex, retval) \
+	nm_auto_pop_netns NMPNetns *netns = NULL; \
+	WpanData *wpan_data; \
+	if (!nm_platform_netns_push (platform, &netns)) \
+		return retval; \
+	wpan_data = wpan_get_wpan_data (platform, ifindex); \
+	if (!wpan_data) \
+		return retval;
+
+static guint16
+wpan_get_pan_id (NMPlatform *platform, int ifindex)
+{
+	WPAN_GET_WPAN_DATA_NETNS (wpan_data, platform, ifindex, FALSE);
+	return wpan_utils_get_pan_id (wpan_data);
+}
+
+static gboolean
+wpan_set_pan_id (NMPlatform *platform, int ifindex, const guint16 pan_id)
+{
+	WPAN_GET_WPAN_DATA_NETNS (wpan_data, platform, ifindex, FALSE);
+	return wpan_utils_set_pan_id (wpan_data, pan_id);
+}
+
+static guint16
+wpan_get_short_addr (NMPlatform *platform, int ifindex)
+{
+	WPAN_GET_WPAN_DATA_NETNS (wpan_data, platform, ifindex, FALSE);
+	return wpan_utils_get_short_addr (wpan_data);
+}
+
+static gboolean
+wpan_set_short_addr (NMPlatform *platform, int ifindex, const guint16 short_addr)
+{
+	WPAN_GET_WPAN_DATA_NETNS (wpan_data, platform, ifindex, FALSE);
+	return wpan_utils_set_short_addr (wpan_data, short_addr);
+}
+
+/*****************************************************************************/
+
 static gboolean
 link_get_wake_on_lan (NMPlatform *platform, int ifindex)
 {
@@ -7255,6 +7310,11 @@ nm_linux_platform_class_init (NMLinuxPlatformClass *klass)
 	platform_class->mesh_get_channel = mesh_get_channel;
 	platform_class->mesh_set_channel = mesh_set_channel;
 	platform_class->mesh_set_ssid = mesh_set_ssid;
+
+	platform_class->wpan_get_pan_id = wpan_get_pan_id;
+	platform_class->wpan_set_pan_id = wpan_set_pan_id;
+	platform_class->wpan_get_short_addr = wpan_get_short_addr;
+	platform_class->wpan_set_short_addr = wpan_set_short_addr;
 
 	platform_class->link_gre_add = link_gre_add;
 	platform_class->link_ip6tnl_add = link_ip6tnl_add;
