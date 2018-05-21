@@ -1,0 +1,2 @@
+#!/bin/sh
+exec nmcli connection up filename "/etc/sysconfig/network-scripts/ifcfg-$1"
