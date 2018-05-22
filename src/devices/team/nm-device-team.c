@@ -703,7 +703,7 @@ enslave_slave (NMDevice *device,
 {
 	NMDeviceTeam *self = NM_DEVICE_TEAM (device);
 	NMDeviceTeamPrivate *priv = NM_DEVICE_TEAM_GET_PRIVATE (self);
-	gboolean success = TRUE, no_firmware = FALSE;
+	gboolean success = TRUE;
 	const char *slave_iface = nm_device_get_ip_iface (slave);
 	NMSettingTeamPort *s_team_port;
 
@@ -738,7 +738,7 @@ enslave_slave (NMDevice *device,
 		success = nm_platform_link_enslave (nm_device_get_platform (device),
 		                                    nm_device_get_ip_ifindex (device),
 		                                    nm_device_get_ip_ifindex (slave));
-		nm_device_bring_up (slave, TRUE, &no_firmware);
+		nm_device_bring_up (slave, TRUE, NULL);
 
 		if (!success)
 			return FALSE;
@@ -762,7 +762,7 @@ release_slave (NMDevice *device,
 {
 	NMDeviceTeam *self = NM_DEVICE_TEAM (device);
 	NMDeviceTeamPrivate *priv = NM_DEVICE_TEAM_GET_PRIVATE (self);
-	gboolean success, no_firmware = FALSE;
+	gboolean success;
 
 	if (configure) {
 		success = nm_platform_link_release (nm_device_get_platform (device),
@@ -778,7 +778,7 @@ release_slave (NMDevice *device,
 		 * IFF_UP), so we must bring it back up here to ensure carrier changes and
 		 * other state is noticed by the now-released port.
 		 */
-		if (!nm_device_bring_up (slave, TRUE, &no_firmware))
+		if (!nm_device_bring_up (slave, TRUE, NULL))
 			_LOGW (LOGD_TEAM, "released team port %s could not be brought up",
 			       nm_device_get_ip_iface (slave));
 
