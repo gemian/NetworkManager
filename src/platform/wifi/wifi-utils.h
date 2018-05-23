@@ -32,8 +32,6 @@ gboolean wifi_utils_is_wifi (int dirfd, const char *ifname);
 
 WifiData *wifi_utils_init (int ifindex, gboolean check_scan);
 
-int wifi_utils_get_ifindex (WifiData *data);
-
 void wifi_utils_unref (WifiData *data);
 
 NMDeviceWifiCapabilities wifi_utils_get_caps (WifiData *data);

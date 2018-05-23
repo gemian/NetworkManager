@@ -69,14 +69,6 @@ wifi_utils_init (int ifindex, gboolean check_scan)
 	return ret;
 }
 
-int
-wifi_utils_get_ifindex (WifiData *data)
-{
-	g_return_val_if_fail (data != NULL, -1);
-
-	return data->ifindex;
-}
-
 NMDeviceWifiCapabilities
 wifi_utils_get_caps (WifiData *data)
 {
