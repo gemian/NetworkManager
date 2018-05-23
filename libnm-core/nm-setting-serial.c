@@ -145,12 +145,6 @@ nm_setting_serial_get_send_delay (NMSettingSerial *setting)
 	return NM_SETTING_SERIAL_GET_PRIVATE (setting)->send_delay;
 }
 
-static gboolean
-verify (NMSetting *setting, NMConnection *connection, GError **error)
-{
-	return TRUE;
-}
-
 static void
 nm_setting_serial_init (NMSettingSerial *setting)
 {
@@ -254,7 +248,6 @@ nm_setting_serial_class_init (NMSettingSerialClass *setting_class)
 	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
-	parent_class->verify       = verify;
 
 	/* Properties */
 
