@@ -2962,7 +2962,12 @@ nm_utils_get_ipv6_interface_identifier (NMLinkType link_type,
 		memcpy (out_iid->id_u8 + 4, &addr, 4);
 		return TRUE;
 	default:
-		if (hwaddr_len == ETH_ALEN) {
+		if (hwaddr_len == G_N_ELEMENTS (out_iid->id_u8)) {
+			/* The hardware address is already 64-bit. This is the case for
+			 * IEEE 802.15.4 networks. */
+			memcpy (out_iid->id_u8, hwaddr, sizeof (out_iid->id_u8));
+			return TRUE;
+		} else if (hwaddr_len == ETH_ALEN) {
 			/* Translate 48-bit MAC address to a 64-bit Modified EUI-64.  See
 			 * http://tools.ietf.org/html/rfc4291#appendix-A and the Linux
 			 * kernel's net/ipv6/addrconf.c::ipv6_generate_eui64() function.
