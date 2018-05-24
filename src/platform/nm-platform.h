@@ -1076,7 +1076,7 @@ const NMPObject *nm_platform_link_get_obj (NMPlatform *self,
                                            gboolean visible_only);
 const NMPlatformLink *nm_platform_link_get (NMPlatform *self, int ifindex);
 const NMPlatformLink *nm_platform_link_get_by_ifname (NMPlatform *self, const char *ifname);
-const NMPlatformLink *nm_platform_link_get_by_address (NMPlatform *self, gconstpointer address, size_t length);
+const NMPlatformLink *nm_platform_link_get_by_address (NMPlatform *self, NMLinkType link_type, gconstpointer address, size_t length);
 
 GPtrArray *nm_platform_link_get_all (NMPlatform *self, gboolean sort_by_name);
 NMPlatformError nm_platform_link_dummy_add (NMPlatform *self, const char *name, const NMPlatformLink **out_link);
