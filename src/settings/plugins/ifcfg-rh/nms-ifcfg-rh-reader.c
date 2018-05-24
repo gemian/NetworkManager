@@ -1976,6 +1976,69 @@ error:
 }
 
 static NMSetting *
+make_sriov_setting (shvarFile *ifcfg)
+{
+	gs_unref_hashtable GHashTable *keys = NULL;
+	gs_unref_ptrarray GPtrArray *vfs = NULL;
+	NMBooleanValue autoprobe_drivers;
+	NMSettingSriov *s_sriov;
+	int total_vfs;
+
+	total_vfs = svGetValueInt64 (ifcfg, "SRIOV_TOTAL_VFS", 10, 0, G_MAXINT32, 0);
+	if (!total_vfs)
+		return NULL;
+
+	autoprobe_drivers = svGetValueInt64 (ifcfg,
+	                                     "SRIOV_AUTOPROBE_DRIVERS",
+	                                     10,
+	                                     NM_BOOLEAN_VALUE_FALSE,
+	                                     NM_BOOLEAN_VALUE_TRUE,
+	                                     NM_BOOLEAN_VALUE_DEFAULT);
+
+	keys = svGetKeys (ifcfg, SV_KEY_TYPE_SRIOV_VF);
+	if (keys) {
+		GHashTableIter iter;
+		const char *key;
+
+		g_hash_table_iter_init (&iter, keys);
+		while (g_hash_table_iter_next (&iter, (gpointer *) &key, NULL)) {
+			gs_free_error GError *error = NULL;
+			gs_free char *value_to_free = NULL;
+			gs_free char *vf_str = NULL;
+			const char *value;
+			NMSriovVF *vf;
+
+			value = svGetValue (ifcfg, key, &value_to_free);
+
+			if (!value)
+				continue;
+
+			vf_str = g_strdup_printf ("%s %s",
+			                          key + NM_STRLEN ("SRIOV_VF"),
+			                          value);
+			vf = nm_utils_sriov_vf_from_str (vf_str, &error);
+			if (!vf) {
+				PARSE_WARNING ("ignoring invalid SR-IOV VF '%s': %s",
+				               vf_str, error->message);
+				continue;
+			}
+			if (!vfs)
+				vfs = g_ptr_array_new_with_free_func ((GDestroyNotify) nm_sriov_vf_unref);
+			g_ptr_array_add (vfs, vf);
+		}
+	}
+
+	s_sriov = (NMSettingSriov *) nm_setting_sriov_new ();
+	g_object_set (s_sriov,
+	              NM_SETTING_SRIOV_TOTAL_VFS, total_vfs,
+	              NM_SETTING_SRIOV_VFS, vfs,
+	              NM_SETTING_SRIOV_AUTOPROBE_DRIVERS, (int) autoprobe_drivers,
+	              NULL);
+
+	return (NMSetting *) s_sriov;
+}
+
+static NMSetting *
 make_tc_setting (shvarFile *ifcfg)
 {
 	NMSettingTCConfig *s_tc = NULL;
@@ -5321,6 +5384,7 @@ connection_from_file_full (const char *filename,
 	gs_free char *type = NULL;
 	char *devtype, *bootproto;
 	NMSetting *s_ip4, *s_ip6, *s_tc, *s_proxy, *s_port, *s_dcb = NULL, *s_user;
+	NMSetting *s_sriov;
 	const char *ifcfg_name = NULL;
 	gboolean has_ip4_defroute = FALSE;
 	gboolean has_complex_routes_v4;
@@ -5575,6 +5639,10 @@ connection_from_file_full (const char *filename,
 		              filename);
 		nm_connection_add_setting (connection, s_ip4);
 	}
+
+	s_sriov = make_sriov_setting (parsed);
+	if (s_sriov)
+		nm_connection_add_setting (connection, s_sriov);
 
 	s_tc = make_tc_setting (parsed);
 	if (s_tc)
