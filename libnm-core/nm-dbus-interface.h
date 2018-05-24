@@ -981,4 +981,20 @@ typedef enum { /*< flags >*/
 	NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT          = (1LL <<  5),
 } NMSettingsUpdate2Flags;
 
+/**
+ * NMBooleanValue:
+ * @NM_BOOLEAN_VALUE_DEFAULT: use the globally-configured default value.
+ * @NM_BOOLEAN_VALUE_FALSE: the option is disabled.
+ * @NM_BOOLEAN_VALUE_TRUE: the option is enabled.
+ *
+ * An boolean value that can be overridden by a default.
+ *
+ * Since: 1.12
+ **/
+typedef enum {
+	NM_BOOLEAN_VALUE_DEFAULT = -1,
+	NM_BOOLEAN_VALUE_FALSE = 0,
+	NM_BOOLEAN_VALUE_TRUE = 1,
+} NMBooleanValue;
+
 #endif /* __NM_DBUS_INTERFACE_H__ */
