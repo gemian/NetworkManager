@@ -155,6 +155,13 @@ G_STATIC_ASSERT (RTA_MAX == (__RTA_MAX - 1));
 
 /*****************************************************************************/
 
+/* Appeared in in kernel prior to 3.13 dated 19 January, 2014 */
+#ifndef ARPHRD_6LOWPAN
+#define ARPHRD_6LOWPAN 825
+#endif
+
+/*****************************************************************************/
+
 #define IFLA_MACSEC_UNSPEC              0
 #define IFLA_MACSEC_SCI                 1
 #define IFLA_MACSEC_PORT                2
