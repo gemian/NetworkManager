@@ -472,7 +472,7 @@ fill_route_attributes (GKeyFile *kf, NMIPRoute *route, const char *setting, cons
 		g_hash_table_iter_init (&iter, hash);
 		while (g_hash_table_iter_next (&iter, (gpointer *) &name, (gpointer *) &variant)) {
 			if (nm_ip_route_attribute_validate (name, variant, family, NULL, NULL))
-				nm_ip_route_set_attribute (route, name, g_variant_ref (variant));
+				nm_ip_route_set_attribute (route, name, variant);
 		}
 	}
 }
