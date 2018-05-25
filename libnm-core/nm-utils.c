@@ -2648,6 +2648,228 @@ nm_utils_tc_tfilter_from_str (const char *str, GError **error)
 
 /*****************************************************************************/
 
+extern const NMVariantAttributeSpec *const _nm_sriov_vf_attribute_spec[];
+
+/**
+ * nm_utils_sriov_vf_to_str:
+ * @vf: the %NMSriovVF
+ * @omit_index: if %TRUE, the VF index will be omitted from output string
+ * @error: (out) (allow-none): location to store the error on failure
+ *
+ * Converts a SR-IOV virtual function object to its string representation.
+ *
+ * Returns: a newly allocated string or %NULL on error
+ *
+ * Since: 1.12
+ */
+char *
+nm_utils_sriov_vf_to_str (NMSriovVF *vf, gboolean omit_index, GError **error)
+{
+	gs_unref_hashtable GHashTable *attr_hash = NULL;
+	nm_auto_free_gstring GString *vlans_str = NULL;
+	gs_strfreev char **names = NULL;
+	gs_free char *attrs = NULL;
+	const guint *vlan_ids;
+	guint num_vlans;
+	char index_str[32];
+	guint i;
+
+	attr_hash = g_hash_table_new (nm_str_hash, g_str_equal);
+	names = nm_sriov_vf_get_attribute_names (vf);
+
+	for (i = 0; names[i]; i++)
+		g_hash_table_insert (attr_hash, names[i], nm_sriov_vf_get_attribute (vf, names[i]));
+
+	attrs = nm_utils_format_variant_attributes (attr_hash, ' ', '=');
+
+	vlan_ids = nm_sriov_vf_get_vlan_ids (vf, &num_vlans);
+	if (num_vlans != 0) {
+		vlans_str = g_string_new (" vlans");
+		for (i = 0; i < num_vlans; i++) {
+			guint32 qos;
+			NMSriovVFVlanProtocol protocol;
+
+			qos = nm_sriov_vf_get_vlan_qos (vf, vlan_ids[i]);
+			protocol = nm_sriov_vf_get_vlan_protocol (vf, vlan_ids[i]);
+
+			g_string_append_c (vlans_str, i == 0 ? '=' : ';');
+
+			g_string_append_printf (vlans_str, "%u", vlan_ids[i]);
+
+			if (   qos != 0
+			    || protocol != NM_SRIOV_VF_VLAN_PROTOCOL_802_1Q) {
+				g_string_append_printf (vlans_str,
+				                        ".%u%s",
+				                        (unsigned) qos,
+				                        protocol == NM_SRIOV_VF_VLAN_PROTOCOL_802_1Q ? "" : ".ad");
+			}
+		}
+	}
+
+	if (omit_index)
+		index_str[0] = '\0';
+	else
+		nm_sprintf_buf (index_str, "%u", nm_sriov_vf_get_index (vf));
+
+	return g_strdup_printf ("%s%s%s%s",
+	                        index_str,
+	                        (attrs && !omit_index) ? " " : "",
+	                        attrs ?: "",
+	                        vlans_str ? vlans_str->str : "");
+}
+
+static gboolean
+_nm_sriov_vf_parse_vlans (NMSriovVF *vf, GVariant *variant, GError **error)
+{
+	gs_free const char **vlans = NULL;
+	guint i;
+
+	nm_assert (g_variant_is_of_type (variant, G_VARIANT_TYPE_STRING));
+
+	vlans = nm_utils_strsplit_set (g_variant_get_string (variant, NULL), ";");
+	if (!vlans) {
+		g_set_error_literal (error,
+		                     NM_CONNECTION_ERROR,
+		                     NM_CONNECTION_ERROR_FAILED,
+		                     "empty VF VLAN");
+		return FALSE;
+	}
+
+	for (i = 0; vlans[i]; i++) {
+		gs_free const char **params;
+		guint id = 0, j;
+		guint32 qos;
+
+		params = nm_utils_strsplit_set (vlans[i], ".");
+		if (!params) {
+			g_set_error_literal (error,
+			                     NM_CONNECTION_ERROR,
+			                     NM_CONNECTION_ERROR_FAILED,
+			                     "empty VF VLAN");
+			return FALSE;
+		}
+		for (j = 0; params[j]; j++) {
+			switch (j) {
+			case 0:
+				id = _nm_utils_ascii_str_to_int64 (params[j], 0, 0, 4095, 0);
+				if (errno) {
+					g_set_error (error,
+					             NM_CONNECTION_ERROR,
+					             NM_CONNECTION_ERROR_FAILED,
+					             "invalid VF VLAN id '%s'",
+					             params[j]);
+					return FALSE;
+				}
+				nm_sriov_vf_add_vlan (vf, id);
+				break;
+			case 1:
+				qos = _nm_utils_ascii_str_to_int64 (params[j], 0, 0, G_MAXUINT32, 0);
+				if (errno) {
+					g_set_error (error,
+					             NM_CONNECTION_ERROR,
+					             NM_CONNECTION_ERROR_FAILED,
+					             "invalid VF VLAN QoS '%s'",
+					             params[j]);
+					return FALSE;
+				}
+				nm_sriov_vf_set_vlan_qos (vf, id, qos);
+				break;
+			case 2:
+				if (nm_streq (params[j], "ad"))
+					nm_sriov_vf_set_vlan_protocol (vf, id, NM_SRIOV_VF_VLAN_PROTOCOL_802_1AD);
+				else if (nm_streq (params[j], "q"))
+					nm_sriov_vf_set_vlan_protocol (vf, id, NM_SRIOV_VF_VLAN_PROTOCOL_802_1Q);
+				else {
+					g_set_error (error,
+					             NM_CONNECTION_ERROR,
+					             NM_CONNECTION_ERROR_FAILED,
+					             "invalid VF VLAN protocol '%s'",
+					             params[j]);
+					return FALSE;
+				}
+				break;
+			default:
+				g_set_error_literal (error,
+				                     NM_CONNECTION_ERROR,
+				                     NM_CONNECTION_ERROR_FAILED,
+				                     "too many tokens in VF VLAN descriptor");
+				return FALSE;
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+/**
+ * nm_utils_sriov_vf_from_str:
+ * @str: the input string
+ * @error: (out) (allow-none): location to store the error on failure
+ *
+ * Converts a string to a SR-IOV virtual function object.
+ *
+ * Returns: (transfer full): the virtual function object
+ *
+ * Since: 1.12
+ */
+NMSriovVF *
+nm_utils_sriov_vf_from_str (const char *str, GError **error)
+{
+	NMSriovVF *vf;
+	char *space;
+	gs_free char *dup = NULL;
+	guint32 index;
+	gs_unref_hashtable GHashTable *ht = NULL;
+	GHashTableIter iter;
+	char *key;
+	GVariant *variant;
+
+	g_return_val_if_fail (str, NULL);
+	g_return_val_if_fail (!error || !*error, NULL);
+
+	while (g_ascii_isspace (str[0]))
+		str++;
+
+	dup = g_strdup (str);
+	space = strchr (dup, ' ');
+	if (space)
+		*space = 0;
+
+	index = _nm_utils_ascii_str_to_int64 (dup, 10, 0, G_MAXUINT32, -1);
+	if (errno) {
+		g_set_error_literal (error,
+		                     NM_CONNECTION_ERROR,
+		                     NM_CONNECTION_ERROR_FAILED,
+		                     "invalid index");
+		return NULL;
+	}
+
+	vf = nm_sriov_vf_new (index);
+	if (space) {
+		ht = nm_utils_parse_variant_attributes (space + 1, ' ', '=', TRUE, _nm_sriov_vf_attribute_spec, error);
+		if (!ht) {
+			nm_sriov_vf_unref (vf);
+			return NULL;
+		}
+
+		if ((variant = g_hash_table_lookup (ht, "vlans"))) {
+			if (!_nm_sriov_vf_parse_vlans (vf, variant, error)) {
+				nm_sriov_vf_unref (vf);
+				return NULL;
+			}
+			g_hash_table_remove (ht, "vlans");
+		}
+
+		g_hash_table_iter_init (&iter, ht);
+		while (g_hash_table_iter_next (&iter, (gpointer *) &key, (gpointer *) &variant))
+			nm_sriov_vf_set_attribute (vf, key, variant);
+	}
+
+	return vf;
+}
+
+/*****************************************************************************/
+
 /**
  * nm_utils_uuid_generate_buf_:
  * @buf: input buffer, must contain at least 37 bytes

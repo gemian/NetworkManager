@@ -1130,6 +1130,46 @@ _normalize_ovs_interface_type (NMConnection *self, GHashTable *parameters)
 	return modified;
 }
 
+static gint
+vf_index_compare (gconstpointer a, gconstpointer b)
+{
+	NMSriovVF *vf_a = *(NMSriovVF **) a;
+	NMSriovVF *vf_b = *(NMSriovVF **) b;
+
+	return nm_sriov_vf_get_index (vf_a) - nm_sriov_vf_get_index (vf_b);
+}
+
+static gboolean
+_normalize_sriov_vf_order (NMConnection *self, GHashTable *parameters)
+{
+	NMSettingSriov *s_sriov;
+	gboolean need_sort = FALSE;
+	gs_unref_ptrarray GPtrArray *vfs = NULL;
+	guint i;
+
+	s_sriov = nm_connection_get_setting_sriov (self);
+	if (!s_sriov)
+		return FALSE;
+
+	g_object_get (s_sriov, NM_SETTING_SRIOV_VFS, &vfs, NULL);
+	for (i = 1; i < vfs->len; i++) {
+		NMSriovVF *vf_prev = vfs->pdata[i - 1];
+		NMSriovVF *vf = vfs->pdata[i];
+
+		if (nm_sriov_vf_get_index (vf) <= nm_sriov_vf_get_index (vf_prev)) {
+			need_sort = TRUE;
+			break;
+		}
+	}
+
+	if (need_sort) {
+		g_ptr_array_sort (vfs, vf_index_compare);
+		g_object_set (s_sriov, NM_SETTING_SRIOV_VFS, vfs, NULL);
+	}
+
+	return need_sort;
+}
+
 static gboolean
 _normalize_required_settings (NMConnection *self, GHashTable *parameters)
 {
@@ -1435,6 +1475,7 @@ nm_connection_normalize (NMConnection *connection,
 	was_modified |= _normalize_team_port_config (connection, parameters);
 	was_modified |= _normalize_bluetooth_type (connection, parameters);
 	was_modified |= _normalize_ovs_interface_type (connection, parameters);
+	was_modified |= _normalize_sriov_vf_order (connection, parameters);
 
 	/* Verify anew. */
 	success = _nm_connection_verify (connection, error);
@@ -2519,6 +2560,22 @@ NMSettingSerial *
 nm_connection_get_setting_serial (NMConnection *connection)
 {
 	return _connection_get_setting_check (connection, NM_TYPE_SETTING_SERIAL);
+}
+
+/**
+ * nm_connection_get_setting_sriov:
+ * @connection: the #NMConnection
+ *
+ * A shortcut to return any #NMSettingSriov the connection might contain.
+ *
+ * Returns: (transfer none): an #NMSettingSriov if the connection contains one, otherwise %NULL
+ *
+ * Since: 1.12
+ **/
+NMSettingSriov *
+nm_connection_get_setting_sriov (NMConnection *connection)
+{
+	return _connection_get_setting_check (connection, NM_TYPE_SETTING_SRIOV);
 }
 
 /**
