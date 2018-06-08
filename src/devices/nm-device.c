@@ -7686,7 +7686,8 @@ dhcp6_prefix_delegated (NMDhcpClient *client,
 #define EPOCH_DATETIME_200001010000  946684800
 
 static GBytes *
-generate_duid_llt (GBytes *hwaddr, gint64 time)
+generate_duid_llt (const guint8 *hwaddr /*ETH_ALEN bytes */,
+                   gint64 time)
 {
 	GByteArray *duid_arr;
 	const guint16 duid_type = htons (1);
@@ -7698,14 +7699,13 @@ generate_duid_llt (GBytes *hwaddr, gint64 time)
 	g_byte_array_append (duid_arr, (const guint8 *) &duid_type, 2);
 	g_byte_array_append (duid_arr, (const guint8 *) &hw_type, 2);
 	g_byte_array_append (duid_arr, (const guint8 *) &duid_time, 4);
-
-	g_byte_array_append (duid_arr, g_bytes_get_data (hwaddr, NULL), ETH_ALEN);
+	g_byte_array_append (duid_arr, hwaddr, ETH_ALEN);
 
 	return g_byte_array_free_to_bytes (duid_arr);
 }
 
 static GBytes *
-generate_duid_ll (GBytes *hwaddr)
+generate_duid_ll (const guint8 *hwaddr /* ETH_ALEN */)
 {
 	GByteArray *duid_arr;
 	const guint16 duid_type = htons (3);
@@ -7716,7 +7716,7 @@ generate_duid_ll (GBytes *hwaddr)
 
 	g_byte_array_append (duid_arr, (const guint8 *) &duid_type, 2);
 	g_byte_array_append (duid_arr, (const guint8 *) &hw_type, 2);
-	g_byte_array_append (duid_arr, g_bytes_get_data (hwaddr, NULL), ETH_ALEN);
+	g_byte_array_append (duid_arr, hwaddr, ETH_ALEN);
 
 	return g_byte_array_free_to_bytes (duid_arr);
 }
@@ -7856,7 +7856,7 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 
 #define EPOCH_DATETIME_THREE_YEARS  (356 * 24 * 3600 * 3)
 	if (nm_streq0 (duid, "ll")) {
-		duid_out = generate_duid_ll (hwaddr);
+		duid_out = generate_duid_ll (g_bytes_get_data (hwaddr, NULL));
 
 	} else if (nm_streq0 (duid, "llt")) {
 		gint64 time;
@@ -7867,18 +7867,12 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 			goto end;
 		}
 
-		duid_out = generate_duid_llt (hwaddr, time);
+		duid_out = generate_duid_llt (g_bytes_get_data (hwaddr, NULL), time);
 	} else if (nm_streq0 (duid, "stable-ll")) {
-		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
-
-		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
-		duid_out = generate_duid_ll (stable_id_hwadd);
+		duid_out = generate_duid_ll (sha256_digest);
 
 	} else if (nm_streq0 (duid, "stable-llt")) {
-		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
 		gint64 time;
-
-		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
 
 		/* We want a variable time between the secret_key timestamp and three years
 		 * before. Let's compute the time (in seconds) from 0 to 3 years; then we'll
@@ -7894,7 +7888,7 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 		time = NM_MAX (time, EPOCH_DATETIME_200001010000 + EPOCH_DATETIME_THREE_YEARS);
 		time -= (unaligned_read_be32 (&sha256_digest[ETH_ALEN]) % EPOCH_DATETIME_THREE_YEARS);
 
-		duid_out = generate_duid_llt (stable_id_hwadd, time);
+		duid_out = generate_duid_llt (sha256_digest, time);
 
 	} else if (nm_streq0 (duid, "stable-uuid")) {
 		duid_out = generate_duid_uuid (sha256_digest, len);
