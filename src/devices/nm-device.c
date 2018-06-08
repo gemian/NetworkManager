@@ -7682,13 +7682,16 @@ dhcp6_prefix_delegated (NMDhcpClient *client,
 	g_signal_emit (self, signals[IP6_PREFIX_DELEGATED], 0, prefix);
 }
 
+/* RFC 3315 defines the epoch for the DUID-LLT time field on Jan 1st 2000. */
+#define EPOCH_DATETIME_200001010000  946684800
+
 static GBytes *
-generate_duid_llt (GBytes *hwaddr, guint32 time)
+generate_duid_llt (GBytes *hwaddr, gint64 time)
 {
 	GByteArray *duid_arr;
 	const guint16 duid_type = htons (1);
 	const guint16 hw_type = htons (ARPHRD_ETHER);
-	const guint32 duid_time = htonl (time);
+	const guint32 duid_time = htonl (NM_MAX (0, time - EPOCH_DATETIME_200001010000));
 
 	duid_arr = g_byte_array_sized_new (2 + 4 + 2 + ETH_ALEN);
 
@@ -7851,24 +7854,20 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 
 	duid_enforce = NM_DHCP_DUID_ENFORCE_ALWAYS;
 
-#define EPOCH_DATETIME_200001010000  946684800
 #define EPOCH_DATETIME_THREE_YEARS  (356 * 24 * 3600 * 3)
 	if (nm_streq0 (duid, "ll")) {
 		duid_out = generate_duid_ll (hwaddr);
 
 	} else if (nm_streq0 (duid, "llt")) {
-		guint32 time;
+		gint64 time;
 
 		time = nm_utils_secret_key_get_timestamp ();
 		if (!time) {
 			duid_error = "cannot retrieve the secret key timestamp";
 			goto end;
 		}
-		/* RFC 3315 defines the epoch for the DUID-LLT time field on Jan 1st 2000. */
-		time -= EPOCH_DATETIME_200001010000;
 
 		duid_out = generate_duid_llt (hwaddr, time);
-
 	} else if (nm_streq0 (duid, "stable-ll")) {
 		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
 
@@ -7877,8 +7876,7 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 
 	} else if (nm_streq0 (duid, "stable-llt")) {
 		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
-		guint32 time;
-		guint64 secret_key_time;
+		gint64 time;
 
 		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
 
@@ -7886,12 +7884,14 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 		 * before. Let's compute the time (in seconds) from 0 to 3 years; then we'll
 		 * subtract it from the secret_key timestamp.
 		 */
-		secret_key_time = nm_utils_secret_key_get_timestamp ();
-		if (!secret_key_time) {
+		time = nm_utils_secret_key_get_timestamp ();
+		if (!time) {
 			duid_error = "cannot retrieve the secret key timestamp";
 			goto end;
 		}
-		time = secret_key_time - EPOCH_DATETIME_200001010000;
+		/* don't use too old timestamps. They cannot be expressed in DUID-LLT and
+		 * would all be truncated to zero. */
+		time = NM_MAX (time, EPOCH_DATETIME_200001010000 + EPOCH_DATETIME_THREE_YEARS);
 		time -= (unaligned_read_be32 (&sha256_digest[ETH_ALEN]) % EPOCH_DATETIME_THREE_YEARS);
 
 		duid_out = generate_duid_llt (stable_id_hwadd, time);
