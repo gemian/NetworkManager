@@ -7686,7 +7686,7 @@ dhcp6_prefix_delegated (NMDhcpClient *client,
 #define EPOCH_DATETIME_200001010000  946684800
 
 static GBytes *
-generate_duid_llt (const guint8 *hwaddr /*ETH_ALEN bytes */,
+generate_duid_llt (const guint8 *hwaddr /* ETH_ALEN bytes */,
                    gint64 time)
 {
 	GByteArray *duid_arr;
@@ -7705,7 +7705,7 @@ generate_duid_llt (const guint8 *hwaddr /*ETH_ALEN bytes */,
 }
 
 static GBytes *
-generate_duid_ll (const guint8 *hwaddr /* ETH_ALEN */)
+generate_duid_ll (const guint8 *hwaddr /* ETH_ALEN bytes */)
 {
 	GByteArray *duid_arr;
 	const guint16 duid_type = htons (3);
