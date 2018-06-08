@@ -7877,9 +7877,8 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 
 	} else if (nm_streq0 (duid, "stable-llt")) {
 		gs_unref_bytes GBytes *stable_id_hwadd = NULL;
-		guint32 time, stable_id_diff = 0;
+		guint32 time;
 		guint64 secret_key_time;
-		int i;
 
 		stable_id_hwadd = g_bytes_new (&sha256_digest[0], ETH_ALEN);
 
@@ -7892,13 +7891,8 @@ dhcp6_get_duid (NMDevice *self, NMConnection *connection, GBytes *hwaddr, NMDhcp
 			duid_error = "cannot retrieve the secret key timestamp";
 			goto end;
 		}
-		for (i = 0; i < 4; i++) {
-			stable_id_diff = stable_id_diff << 8;
-			stable_id_diff += unaligned_read_be32 (&sha256_digest[ETH_ALEN + i]);
-		}
-		stable_id_diff = stable_id_diff % EPOCH_DATETIME_THREE_YEARS;
 		time = secret_key_time - EPOCH_DATETIME_200001010000;
-		time -= stable_id_diff;
+		time -= (unaligned_read_be32 (&sha256_digest[ETH_ALEN]) % EPOCH_DATETIME_THREE_YEARS);
 
 		duid_out = generate_duid_llt (stable_id_hwadd, time);
 
