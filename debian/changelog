@@ -1,3 +1,9 @@
+network-manager (1.10.8+gemian) buster; urgency=medium
+
+  * Branched for Gemian
+
+ -- Adam Boardman <adamboardman@gmail.com>  Sat, 9 Jun 2018 14:38:48 +0100
+
 network-manager (1.10.8-1) unstable; urgency=medium
 
   * New upstream version 1.10.8

@@ -34,6 +34,7 @@ override_dh_auto_configure:
 		--with-modem-manager-1 \
 		--with-nmtui \
 		--with-nmcli \
+		--with-ofono \
 		--with-selinux \
 		--with-libaudit \
 		--without-dhcpcanon \

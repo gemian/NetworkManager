@@ -42,6 +42,7 @@ Build-Depends: debhelper (>= 10.3),
                libjansson-dev,
                libbluetooth-dev (>= 5),
                valac (>= 0.17.1.24),
+               ofono-dev,
                dbus <!nocheck>,
                python-dbus <!nocheck>
 Standards-Version: 4.1.3
