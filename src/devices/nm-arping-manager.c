@@ -223,7 +223,7 @@ nm_arping_manager_start_probe (NMArpingManager *self, guint timeout, GError **er
 
 	priv->completed = 0;
 
-	argv[0] = nm_utils_find_helper ("arping", NULL, NULL);
+	argv[0] = nm_utils_find_helper ("arping", "/usr/bin/arping", NULL);
 	if (!argv[0]) {
 		g_set_error_literal (error, NM_DEVICE_ERROR, NM_DEVICE_ERROR_FAILED,
 		                     "arping could not be found");
@@ -343,7 +343,7 @@ send_announcements (NMArpingManager *self, const char *mode_arg)
 		return;
 	}
 
-	argv[0] = nm_utils_find_helper ("arping", NULL, NULL);
+	argv[0] = nm_utils_find_helper ("arping", "/usr/bin/arping", NULL);
 	if (!argv[0]) {
 		_LOGW ("arping could not be found; no ARPs will be sent");
 		return;

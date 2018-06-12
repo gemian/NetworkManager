@@ -858,6 +858,7 @@ nodist_libnminclude_HEADERS += \
 noinst_LTLIBRARIES += libnm/libnm-utils.la
 
 libnm_libnm_utils_la_CPPFLAGS = \
+	$(INTROSPECTION_CFLAGS) \
 	$(libnm_lib_cppflags)
 
 libnm_libnm_utils_la_SOURCES = \
@@ -956,6 +957,23 @@ libnm/libnm.typelib: libnm/libnm.gir
 	$(INTROSPECTION_COMPILER) --includedir=$(srcdir)/libnm-core --includedir=$(builddir)/libnm-core --includedir=$(srcdir)/libnm --includedir=$(builddir)/libnm $< -o $@
 
 INTROSPECTION_GIRS += libnm/NM-1.0.gir
+
+if WITH_FAKE_TYPELIBS
+
+libnm/fake-typelib/NetworkManager.typelib: libnm/fake-typelib/NetworkManager.gir
+	$(AM_V_GEN)  $(INTROSPECTION_COMPILER) $< -o $@
+
+libnm/fake-typelib/NMClient.typelib: libnm/fake-typelib/NMClient.gir
+	$(AM_V_GEN) $(INTROSPECTION_COMPILER) $< -o $@
+
+libnm/fake-typelib/typelibs.c: libnm/fake-typelib/typelibs.gresource.xml libnm/fake-typelib/NetworkManager.typelib libnm/fake-typelib/NMClient.typelib
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) $< --target=$@ --sourcedir=$(srcdir)/libnm/fake-typelib --generate-source --manual-register --internal
+
+libnm_libnm_utils_la_SOURCES += \
+	libnm/fake-typelib/typelibs.c
+
+endif
+
 endif
 
 if HAVE_INTROSPECTION
@@ -3688,11 +3706,6 @@ endif
 
 data/NetworkManager-dispatcher.service: $(srcdir)/data/NetworkManager-dispatcher.service.in
 	$(AM_V_GEN) $(data_edit) $< >$@
-
-data/org.freedesktop.NetworkManager.service: $(srcdir)/data/org.freedesktop.NetworkManager.service.in
-	$(AM_V_GEN) $(data_edit) $< >$@
-
-service_DATA += data/org.freedesktop.NetworkManager.service
 
 endif
 

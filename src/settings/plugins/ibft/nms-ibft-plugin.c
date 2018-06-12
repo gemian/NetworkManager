@@ -74,7 +74,7 @@ read_connections (NMSIbftPlugin *self)
 	GError *error = NULL;
 	NMSIbftConnection *connection;
 
-	if (!nms_ibft_reader_load_blocks ("/sbin/iscsiadm", &blocks, &error)) {
+	if (!nms_ibft_reader_load_blocks ("/usr/bin/iscsiadm", &blocks, &error)) {
 		nm_log_dbg (LOGD_SETTINGS, "ibft: failed to read iscsiadm records: %s", error->message);
 		g_error_free (error);
 		return;

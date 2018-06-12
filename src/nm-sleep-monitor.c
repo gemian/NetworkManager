@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <gio/gunixfdlist.h>
+#include <systemd/sd-daemon.h>
 
 #include "nm-core-internal.h"
 #include "NetworkManagerUtils.h"
@@ -345,6 +346,10 @@ on_proxy_acquired (GObject *object,
 static void
 nm_sleep_monitor_init (NMSleepMonitor *self)
 {
+	if (!sd_booted()) {
+		nm_log_warn (LOGD_SUSPEND, "Skipping Sleep Monitor setup, system not booted with systemd");
+		return;
+	}
 	self->inhibit_fd = -1;
 	self->cancellable = g_cancellable_new ();
 	g_dbus_proxy_new_for_bus (G_BUS_TYPE_SYSTEM,
